@@ -23,8 +23,19 @@ logger = logging.getLogger(__name__)
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    logger.error("DATABASE_URL environment variable not set!")
-    raise RuntimeError("Database connection required")
+    # Try alternative environment variables that might be available
+    host = os.getenv("PGHOST", "localhost")
+    port = os.getenv("PGPORT", "5432")
+    database = os.getenv("PGDATABASE", "postgres")
+    user = os.getenv("PGUSER", "postgres")
+    password = os.getenv("PGPASSWORD", "")
+    
+    if host and port and database and user:
+        DATABASE_URL = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        logger.info("Constructed DATABASE_URL from individual environment variables")
+    else:
+        logger.error("No database connection information found!")
+        raise RuntimeError("Database connection required")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
