@@ -1,13 +1,17 @@
 """
-Mini Fingerprint FastAPI Backend with Postgres logging + stats
-- POST /fp : hash traits (salted) and log to DB
-- GET  /recent : last N rows
-- GET  /stats  : total hits, unique fingerprints
-- GET  /health : simple health + DB check
-- GET  /       : serve index.html
+Mini Fingerprint — FastAPI + Postgres
+- POST /fp    : compute component hashes + master hash; log to DB
+- GET  /      : serve index.html
+- GET  /recent: last N rows (default 10)
+- GET  /stats : { total_hits, unique_fps }  (by master hash)
+- GET  /health: { status, salt_configured, db }
+
+Env:
+  - FP_SALT       : long random string (required in prod)
+  - DATABASE_URL  : postgres://USER:PASS@HOST:PORT/DBNAME (Render Postgres External Connection String)
 """
 import os, json, hashlib, logging, datetime
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, List
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
@@ -18,66 +22,109 @@ from sqlalchemy import func, distinct
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mini-fingerprint")
 
-app = FastAPI(title="Mini Fingerprint", version="1.2.0")
+app = FastAPI(title="Mini Fingerprint", version="1.3.0")
 
-# --- Config ---
+# ---------- Config ----------
 FP_SALT = os.getenv("FP_SALT", "dev-only-salt-change-me")
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")  # local fallback
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")  # local fallback for quick testing
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 if FP_SALT == "dev-only-salt-change-me":
     logger.warning("⚠ Using default salt! Set FP_SALT in production.")
 
-# --- DB models ---
+# ---------- DB Model ----------
 class Fingerprint(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    fp: str = Field(index=True)
+
+    # component hashes
+    fp_master: str = Field(index=True)
+    fp_browser: Optional[str] = Field(default=None, index=True)
+    fp_platform: Optional[str] = Field(default=None, index=True)
+    fp_graphics: Optional[str] = Field(default=None, index=True)
+
+    # light metadata (remove if you want stricter privacy)
     ip: Optional[str] = Field(default=None, index=True)
     user_agent: Optional[str] = Field(default=None)
-    created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow, index=True)
 
-# --- Schemas ---
-class TraitsInput(BaseModel):
-    # we accept any traits payload under "data"
+    created_at: datetime.datetime = Field(
+        default_factory=datetime.datetime.utcnow, index=True
+    )
+
+# ---------- Schemas ----------
+class TraitsEnvelope(BaseModel):
+    # we expect { "data": {...traits...} } from the client
     data: Dict[str, Any]
 
-# --- Utils ---
+# ---------- Utils ----------
 def stable_json_dumps(obj: Dict[str, Any]) -> str:
-    # sorted keys + compact separators → stable string to hash
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 def sha256_hex(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-# --- Startup ---
+# ---------- Startup ----------
 @app.on_event("startup")
 def on_startup():
     SQLModel.metadata.create_all(engine)
 
-# --- Routes ---
+# ---------- Routes ----------
 @app.get("/")
 def serve_frontend():
     return FileResponse("index.html")
 
 @app.post("/fp")
-def generate_fingerprint(traits: TraitsInput, request: Request):
+def generate_fingerprint(payload: TraitsEnvelope, request: Request):
     """
-    Body: { "data": { ...traits... } }
-    Returns: { "fp": "<sha256 hex>" }
-    Also logs a row to the DB (fp, ip, user_agent, created_at).
+    Calculates three component hashes + a master hash (hash of those parts),
+    logs a row, and returns { fp, parts } where:
+      - parts.browser   : hash of UA + UA-CH + languages
+      - parts.platform  : hash of platform + hw + screen (bucketed client-side) + timezone bucket
+      - parts.graphics  : hash of canvas + webgl vendor/renderer/api
+      - fp              : master hash over the three parts
     """
     try:
-        normalized = stable_json_dumps(traits.data)
-        fingerprint = sha256_hex(FP_SALT + "|" + normalized)
+        data = payload.data or {}
+
+        browser_obj  = {
+            "userAgent": data.get("userAgent"),
+            "uaCh": data.get("uaCh"),
+            "languages": data.get("languages"),
+        }
+        platform_obj = {
+            "platform": data.get("platform"),
+            "hw": data.get("hw"),
+            "screen": data.get("screen"),
+            "timezoneMinutesBucket": data.get("timezoneMinutesBucket"),
+        }
+        graphics_obj = {
+            "canvas": data.get("canvas"),
+            "webgl": data.get("webgl"),
+        }
+
+        fp_browser  = sha256_hex(FP_SALT + "|" + stable_json_dumps(browser_obj))
+        fp_platform = sha256_hex(FP_SALT + "|" + stable_json_dumps(platform_obj))
+        fp_graphics = sha256_hex(FP_SALT + "|" + stable_json_dumps(graphics_obj))
+
+        master_payload = stable_json_dumps({"b": fp_browser, "p": fp_platform, "g": fp_graphics})
+        fp_master = sha256_hex(FP_SALT + "|" + master_payload)
 
         ip = request.client.host if request.client else None
         ua = request.headers.get("user-agent")
 
         with Session(engine) as s:
-            s.add(Fingerprint(fp=fingerprint, ip=ip, user_agent=ua))
+            s.add(Fingerprint(
+                fp_master=fp_master,
+                fp_browser=fp_browser,
+                fp_platform=fp_platform,
+                fp_graphics=fp_graphics,
+                ip=ip,
+                user_agent=ua
+            ))
             s.commit()
 
-        return {"fp": fingerprint}
+        return {"fp": fp_master, "parts": {
+            "browser": fp_browser, "platform": fp_platform, "graphics": fp_graphics
+        }}
     except Exception:
         logger.exception("Error generating fingerprint")
         return {"error": "Failed to generate fingerprint"}
@@ -91,7 +138,10 @@ def recent(limit: int = 10):
         return [
             {
                 "id": r.id,
-                "fp": r.fp,
+                "fp": r.fp_master,
+                "browser": r.fp_browser,
+                "platform": r.fp_platform,
+                "graphics": r.fp_graphics,
                 "ip": r.ip,
                 "user_agent": r.user_agent,
                 "created_at": r.created_at.isoformat() + "Z",
@@ -101,27 +151,11 @@ def recent(limit: int = 10):
 
 @app.get("/stats")
 def stats():
-    """
-    Returns simple metrics:
-    {
-      "total_hits": <count of rows>,
-      "unique_fps": <count of distinct fp>
-    }
-    """
     with Session(engine) as s:
         total_val = s.exec(select(func.count(Fingerprint.id))).one()
-        unique_val = s.exec(select(func.count(distinct(Fingerprint.fp)))).one()
-
-        # .one() can return a scalar or a tuple depending on versions; normalize to int
-        def to_int(v: Any) -> int:
-            if isinstance(v, tuple):
-                return int(v[0])
-            return int(v)
-
-        return {
-            "total_hits": to_int(total_val),
-            "unique_fps": to_int(unique_val),
-        }
+        unique_val = s.exec(select(func.count(distinct(Fingerprint.fp_master)))).one()
+        def to_int(v): return int(v[0]) if isinstance(v, tuple) else int(v)
+        return {"total_hits": to_int(total_val), "unique_fps": to_int(unique_val)}
 
 @app.get("/health")
 def health_check():
@@ -137,7 +171,7 @@ def health_check():
         "db": db_ok
     }
 
-# Enable local run: `python main.py`
+# Local dev runner
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5000)
