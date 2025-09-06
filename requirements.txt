@@ -2,4 +2,4 @@ fastapi
 uvicorn
 pydantic
 sqlmodel
-psycopg[binary]
+psycopg2-binary
