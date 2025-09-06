@@ -1,120 +1,258 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <title>Mini Fingerprint</title>
-    <style>
-      body { font-family: system-ui, sans-serif; max-width: 800px; margin: 24px auto; padding: 0 12px; }
-      h1 { margin-bottom: 4px; }
-      .muted { color: #666; font-size: 0.9rem; margin-top: 0; }
-      pre { background: #f7f7f7; padding: 12px; border-radius: 8px; overflow: auto; }
-      .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
-      .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef; }
-      .ok { background: #e8f7ec; }
-      .warn { background: #fff3cd; }
-      button { padding: 8px 12px; }
-    </style>
-  </head>
-  <body>
-    <h1>Mini Fingerprint</h1>
-    <p class="muted">This demo collects non-PII browser traits, hashes them (with a server salt), and shows your fingerprint.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mini Fingerprint</title>
+  <style>
+    :root{
+      --bg:#0b1020; --fg:#e7eaf6; --muted:#a4acc4; --brand:#6ea8fe; --ok:#30c48d; --warn:#ffc86b;
+      --card:#121a33cc; --card-border:#2a3562; --code-bg:#0f1630; --code-border:#243061;
+      --shadow:0 10px 30px rgba(0,0,0,.35); --radius:16px;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{
+      margin:0; color:var(--fg);
+      background: radial-gradient(1200px 800px at 10% 0%, #18224b 0%, var(--bg) 55%),
+                 linear-gradient(160deg,#0b1020 0%, #0a0f1e 100%);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .container{max-width:1100px; margin:0 auto; padding:32px 20px 56px}
+    header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px}
+    .brand{display:flex; align-items:center; gap:12px}
+    .logo{display:grid; place-items:center; width:40px; height:40px; border-radius:12px;
+      background:linear-gradient(135deg,#6ea8fe 0%, #8f7dff 60%, #d87bff 100%); box-shadow:var(--shadow);
+      font-weight:700; color:#0a0f1e}
+    .title{font-size:20px; font-weight:700; letter-spacing:.2px}
+    .muted{color:var(--muted)}
+    .grid{display:grid; grid-template-columns:1.2fr .8fr; gap:20px}
+    @media (max-width:920px){ .grid{grid-template-columns:1fr} }
+    .card{background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+    .card-header{padding:18px 18px 0}
+    .card-body{padding:18px}
+    .sub{font-size:13px; color:var(--muted); margin:8px 0 0}
+    .hero{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+    .fp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:15px; line-height:1.35; background:var(--code-bg); border:1px solid var(--code-border);
+      border-radius:12px; padding:12px 14px; overflow:auto; word-break:break-all}
+    .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+    button{background:linear-gradient(180deg,#6ea8fe,#4b8cff); color:#0a0f1e; border:0; border-radius:12px;
+      padding:10px 14px; font-weight:700; cursor:pointer; transition:transform .05s ease, filter .2s ease}
+    button:hover{filter:brightness(1.05)} button:active{transform:translateY(1px)}
+    .ghost{background:transparent; color:var(--fg); border:1px solid var(--card-border)}
+    .badge{display:inline-flex; align-items:center; gap:8px; font-size:13px; padding:8px 10px; border-radius:999px;
+      border:1px solid var(--card-border); background:#111834}
+    .ok{border-color:#1d6e55; background:#0f2a21; color:#8de1c2}
+    .warn{border-color:#7c5a22; background:#2a210f; color:#ffd99c}
+    pre{margin:0; background:var(--code-bg); border:1px solid var(--code-border); border-radius:12px; padding:14px; overflow:auto; font-size:13px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+    details summary{list-style:none; cursor:pointer; user-select:none; font-weight:700; padding:6px 0}
+    details summary::-webkit-details-marker{display:none}
+    .pill{display:inline-block; padding:6px 10px; background:#111834; border:1px solid var(--card-border); border-radius:999px; font-size:12px; color:var(--muted)}
+    footer{margin-top:30px; text-align:center; color:var(--muted); font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">FP</div>
+        <div>
+          <div class="title">Mini Fingerprint</div>
+          <div class="muted">Privacy-aware browser fingerprint demo</div>
+        </div>
+      </div>
+      <div class="row">
+        <button id="recompute">Refresh / Recompute</button>
+        <button id="copy" class="ghost" title="Copy fingerprint">Copy</button>
+      </div>
+    </header>
 
-    <div class="row">
-      <button id="refresh">Refresh / Recompute</button>
-      <span id="stability" class="badge">Checking…</span>
+    <div class="grid">
+      <section class="card">
+        <div class="card-header">
+          <div class="hero">
+            <div>
+              <h2 style="margin:0 0 6px 0">Your fingerprint</h2>
+              <p class="sub">Hashed on the server (SHA-256) with a salt.</p>
+            </div>
+            <span id="stability" class="badge">Checking…</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="fp" class="fp">computing…</div>
+          <div style="margin-top:10px" class="row">
+            <span id="lastSeen" class="pill">Last: —</span>
+            <span id="webglPill" class="pill">WebGL: —</span>
+            <span id="canvasPill" class="pill">Canvas: —</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <div class="card-header">
+          <h3 style="margin:0">Live stats</h3>
+          <p class="sub">Aggregates from the backend.</p>
+        </div>
+        <div class="card-body">
+          <div class="row" style="gap:14px">
+            <div class="pill" id="hitsPill">Total hits: —</div>
+            <div class="pill" id="uniqPill">Unique fps: —</div>
+          </div>
+          <p class="sub" style="margin-top:12px">Open on another device to see “uniques” grow.</p>
+        </div>
+      </aside>
     </div>
 
-    <h3>Current fingerprint</h3>
-    <pre id="fp">…</pre>
+    <section class="card" style="margin-top:20px">
+      <div class="card-body">
+        <details open>
+          <summary>Collected traits</summary>
+          <pre id="traits">…</pre>
+        </details>
+      </div>
+    </section>
 
-    <h3>Collected traits</h3>
-    <pre id="traits">…</pre>
+    <footer>Built for learning — stores only salted hashes + minimal metadata.</footer>
+  </div>
 
-    <script>
-      function boolTry(fn) { try { return !!fn(); } catch { return false; } }
+  <script>
+    // ---------- helpers ----------
+    function boolTry(fn){ try{ return !!fn(); } catch { return false; } }
+    const bucket = (v, step) => (v == null ? null : Math.round(v/step)*step);
 
-      async function getWebGLInfo() {
-        try {
-          const canvas = document.createElement('canvas');
-          let gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-          if (!gl) return { vendor: null, renderer: null, api: null };
+    async function getUAHints(){
+      try{
+        if(!navigator.userAgentData?.getHighEntropyValues) return null;
+        const hi = await navigator.userAgentData.getHighEntropyValues([
+          "architecture","bitness","model","platformVersion","uaFullVersion","fullVersionList"
+        ]);
+        return { mobile: navigator.userAgentData.mobile ?? null, brands: navigator.userAgentData.brands ?? null, ...hi };
+      }catch{ return null; }
+    }
 
-          const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-          const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
-          const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
-          return { vendor, renderer, api: gl instanceof WebGL2RenderingContext ? 'webgl2' : 'webgl' };
-        } catch {
-          return { vendor: null, renderer: null, api: null };
-        }
+    async function getWebGLInfo(){
+      try{
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        if(!gl) return { vendor:null, renderer:null, api:null };
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
+        const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
+        return { vendor, renderer, api: (gl instanceof WebGL2RenderingContext) ? 'webgl2' : 'webgl' };
+      }catch{ return { vendor:null, renderer:null, api:null }; }
+    }
+
+    async function canvasHash(){
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      c.width = 200; c.height = 50;
+      ctx.textBaseline = 'top';
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#f60'; ctx.fillRect(0,0,200,50);
+      ctx.fillStyle = '#69f'; ctx.fillText('fp demo 😊', 2, 2);
+      const str = c.toDataURL();
+      let h = 0; for(let i=0;i<str.length;i++) h = (h*31 + str.charCodeAt(i)) >>> 0;
+      return h.toString(16);
+    }
+
+    async function collectTraits(){
+      const nav = navigator, scr = screen;
+      const webgl = await getWebGLInfo();
+      const uach = await getUAHints();
+
+      // bucket noisy values
+      const tzMinutes = -new Date().getTimezoneOffset(); // e.g., +120 for UTC+2
+      const traits = {
+        userAgent: nav.userAgent || '',
+        uaCh: uach,
+        languages: nav.languages || [nav.language].filter(Boolean),
+        platform: nav.platform || '',
+        hw: { cores: nav.hardwareConcurrency ?? null, memGB: nav.deviceMemory ?? null, maxTouchPoints: nav.maxTouchPoints || 0 },
+        screen: { w: bucket(scr.width,8), h: bucket(scr.height,8), dpr: bucket(window.devicePixelRatio||1,.25), depth: scr.colorDepth || 0 },
+        timezoneMinutesBucket: bucket(tzMinutes, 15),
+        storage: {
+          local: boolTry(()=> (localStorage.setItem('t','1'), localStorage.removeItem('t'), true)),
+          session: boolTry(()=> (sessionStorage.setItem('t','1'), sessionStorage.removeItem('t'), true)),
+          cookie: navigator.cookieEnabled === true
+        },
+        canvas: await canvasHash(),
+        webgl
+      };
+      return traits;
+    }
+
+    function setPill(id, text){ const el = document.getElementById(id); if(el) el.textContent = text; }
+
+    async function updateStats(){
+      try{
+        const r = await fetch('/stats'); if(!r.ok) return;
+        const s = await r.json();
+        setPill('hitsPill', `Total hits: ${s.total_hits ?? '—'}`);
+        setPill('uniqPill', `Unique fps: ${s.unique_fps ?? '—'}`);
+      }catch{}
+    }
+
+    async function compute(){
+      const traits = await collectTraits();
+      document.getElementById('traits').textContent = JSON.stringify(traits, null, 2);
+      setPill('webglPill', `WebGL: ${traits.webgl.vendor ?? '—'} / ${traits.webgl.renderer ?? '—'}`);
+      setPill('canvasPill', `Canvas: ${traits.canvas}`);
+
+      const res = await fetch('/fp', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ data: traits })
+      });
+      const data = await res.json();
+      const fp = data.fp || '(error)';
+      const parts = data.parts || {};
+      document.getElementById('fp').textContent = fp;
+
+      // stability vs last visit (and why)
+      const badge = document.getElementById('stability');
+      const lastFp = localStorage.getItem('last_fp');
+      const lastParts = JSON.parse(localStorage.getItem('last_parts') || '{}');
+      const now = new Date().toLocaleString();
+      document.getElementById('lastSeen').textContent = `Last: ${localStorage.getItem('last_ts') || '—'}`;
+
+      if (lastFp && lastFp === fp){
+        badge.textContent = 'Stable — unchanged since last visit';
+        badge.className = 'badge ok';
+      } else if (lastFp) {
+        const diffs = [];
+        if (lastParts.browser   && lastParts.browser   !== parts.browser)   diffs.push('browser');
+        if (lastParts.platform  && lastParts.platform  !== parts.platform)  diffs.push('platform');
+        if (lastParts.graphics  && lastParts.graphics  !== parts.graphics)  diffs.push('graphics');
+        badge.textContent = diffs.length ? `Changed (${diffs.join(', ')})` : 'Changed since last visit';
+        badge.className = 'badge warn';
+      } else {
+        badge.textContent = 'First seen';
+        badge.className = 'badge';
       }
 
-      async function canvasHash() {
-        const c = document.createElement('canvas');
-        const ctx = c.getContext('2d');
-        c.width = 200; c.height = 50;
-        ctx.textBaseline = 'top';
-        ctx.font = '16px Arial';
-        ctx.fillStyle = '#f60'; ctx.fillRect(0,0,200,50);
-        ctx.fillStyle = '#069'; ctx.fillText('fp demo 😊', 2, 2);
-        // quick digest from data URL
-        const str = c.toDataURL();
-        let h = 0;
-        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-        return h.toString(16);
-      }
+      // persist current
+      localStorage.setItem('last_fp', fp);
+      localStorage.setItem('last_parts', JSON.stringify(parts));
+      localStorage.setItem('last_ts', now);
 
-      async function collectTraits() {
-        const nav = navigator, scr = screen;
-        const webgl = await getWebGLInfo();
-        const traits = {
-          userAgent: nav.userAgent || '',
-          platform: nav.platform || '',
-          languages: nav.languages || [nav.language].filter(Boolean),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-          screen: { w: scr.width, h: scr.height, dpr: window.devicePixelRatio || 1, depth: scr.colorDepth || 0 },
-          hw: { cores: nav.hardwareConcurrency || null, memGB: nav.deviceMemory || null, maxTouchPoints: nav.maxTouchPoints || 0 },
-          storage: {
-            local: boolTry(() => (localStorage.setItem('t','1'), localStorage.removeItem('t'), true)),
-            session: boolTry(() => (sessionStorage.setItem('t','1'), sessionStorage.removeItem('t'), true)),
-            cookie: navigator.cookieEnabled === true
-          },
-          canvas: await canvasHash(),
-          webgl // { vendor, renderer, api }
-        };
-        return traits;
-      }
+      // stats
+      updateStats();
+    }
 
-      async function compute() {
-        const traits = await collectTraits();
-        document.getElementById('traits').textContent = JSON.stringify(traits, null, 2);
+    // copy button
+    document.getElementById('copy').addEventListener('click', async ()=>{
+      const text = document.getElementById('fp').textContent.trim();
+      if (!text) return;
+      try{
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById('copy');
+        const label = btn.textContent; btn.textContent = 'Copied!'; setTimeout(()=> btn.textContent = label, 900);
+      }catch{}
+    });
 
-        const res = await fetch('/fp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: traits })
-        });
-        const data = await res.json();
-        const fp = data.fp || '(error)';
-        document.getElementById('fp').textContent = fp;
-
-        // stability check via localStorage
-        const last = localStorage.getItem('last_fp');
-        const stability = document.getElementById('stability');
-        if (last && last === fp) {
-          stability.textContent = 'Stable: same as last visit';
-          stability.className = 'badge ok';
-        } else if (last && last !== fp) {
-          stability.textContent = 'Changed since last visit';
-          stability.className = 'badge warn';
-        } else {
-          stability.textContent = 'First seen (no previous fp)';
-          stability.className = 'badge';
-        }
-        localStorage.setItem('last_fp', fp);
-      }
-
-      document.getElementById('refresh').addEventListener('click', compute);
-      compute();
-    </script>
-  </body>
+    document.getElementById('recompute').addEventListener('click', compute);
+    compute();
+  </script>
+</body>
 </html>
