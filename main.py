@@ -1,19 +1,24 @@
 """
-Mini Fingerprint FastAPI Backend (with Postgres logging)
-Stores salted fingerprint hash + minimal metadata (no raw traits)
+Mini Fingerprint FastAPI Backend with Postgres logging + stats
+- POST /fp : hash traits (salted) and log to DB
+- GET  /recent : last N rows
+- GET  /stats  : total hits, unique fingerprints
+- GET  /health : simple health + DB check
+- GET  /       : serve index.html
 """
 import os, json, hashlib, logging, datetime
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Field, Session, create_engine, select
+from sqlalchemy import func, distinct
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mini-fingerprint")
 
-app = FastAPI(title="Mini Fingerprint", version="1.1.0")
+app = FastAPI(title="Mini Fingerprint", version="1.2.0")
 
 # --- Config ---
 FP_SALT = os.getenv("FP_SALT", "dev-only-salt-change-me")
@@ -21,7 +26,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")  # local fallback
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 if FP_SALT == "dev-only-salt-change-me":
-    logger.warning("Using default salt! Set FP_SALT in production.")
+    logger.warning("⚠ Using default salt! Set FP_SALT in production.")
 
 # --- DB models ---
 class Fingerprint(SQLModel, table=True):
@@ -33,32 +38,38 @@ class Fingerprint(SQLModel, table=True):
 
 # --- Schemas ---
 class TraitsInput(BaseModel):
+    # we accept any traits payload under "data"
     data: Dict[str, Any]
 
 # --- Utils ---
 def stable_json_dumps(obj: Dict[str, Any]) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"))
+    # sorted keys + compact separators → stable string to hash
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 def sha256_hex(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-# --- Startup: create tables ---
+# --- Startup ---
 @app.on_event("startup")
 def on_startup():
     SQLModel.metadata.create_all(engine)
 
 # --- Routes ---
 @app.get("/")
-async def serve_frontend():
+def serve_frontend():
     return FileResponse("index.html")
 
 @app.post("/fp")
-async def generate_fingerprint(traits: TraitsInput, request: Request):
+def generate_fingerprint(traits: TraitsInput, request: Request):
+    """
+    Body: { "data": { ...traits... } }
+    Returns: { "fp": "<sha256 hex>" }
+    Also logs a row to the DB (fp, ip, user_agent, created_at).
+    """
     try:
-        payload = stable_json_dumps(traits.data)
-        fingerprint = sha256_hex(FP_SALT + payload)
+        normalized = stable_json_dumps(traits.data)
+        fingerprint = sha256_hex(FP_SALT + "|" + normalized)
 
-        # minimal metadata only (no raw traits stored)
         ip = request.client.host if request.client else None
         ua = request.headers.get("user-agent")
 
@@ -67,7 +78,7 @@ async def generate_fingerprint(traits: TraitsInput, request: Request):
             s.commit()
 
         return {"fp": fingerprint}
-    except Exception as e:
+    except Exception:
         logger.exception("Error generating fingerprint")
         return {"error": "Failed to generate fingerprint"}
 
@@ -88,17 +99,45 @@ def recent(limit: int = 10):
             for r in rows
         ]
 
+@app.get("/stats")
+def stats():
+    """
+    Returns simple metrics:
+    {
+      "total_hits": <count of rows>,
+      "unique_fps": <count of distinct fp>
+    }
+    """
+    with Session(engine) as s:
+        total_val = s.exec(select(func.count(Fingerprint.id))).one()
+        unique_val = s.exec(select(func.count(distinct(Fingerprint.fp)))).one()
+
+        # .one() can return a scalar or a tuple depending on versions; normalize to int
+        def to_int(v: Any) -> int:
+            if isinstance(v, tuple):
+                return int(v[0])
+            return int(v)
+
+        return {
+            "total_hits": to_int(total_val),
+            "unique_fps": to_int(unique_val),
+        }
+
 @app.get("/health")
 def health_check():
-    # simple DB check
     try:
         with Session(engine) as s:
             s.exec(select(Fingerprint).limit(1)).all()
         db_ok = True
     except Exception:
         db_ok = False
-    return {"status": "healthy", "salt_configured": FP_SALT != "dev-only-salt-change-me", "db": db_ok}
+    return {
+        "status": "healthy",
+        "salt_configured": FP_SALT != "dev-only-salt-change-me",
+        "db": db_ok
+    }
 
+# Enable local run: `python main.py`
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5000)
