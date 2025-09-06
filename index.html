@@ -1,798 +1,120 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔍 Mini Fingerprint</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Mini Fingerprint</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            line-height: 1.6;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        /* Animated background particles */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: float 6s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.1; }
-            50% { transform: translateY(-20px) rotate(180deg); opacity: 0.3; }
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 2;
-        }
-
-        .main-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 
-                0 20px 40px rgba(0, 0, 0, 0.1),
-                0 0 0 1px rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-            animation: slideUp 0.8s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-
-        .header .subtitle {
-            color: #6b7280;
-            font-size: 1.1rem;
-            font-weight: 400;
-            margin-bottom: 8px;
-        }
-
-        .header .tech-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .privacy-banner {
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-            border: 1px solid #f59e0b;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 32px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .privacy-banner::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #f59e0b, #d97706);
-        }
-
-        .privacy-banner .icon {
-            color: #d97706;
-            margin-right: 8px;
-        }
-
-        .privacy-banner strong {
-            color: #92400e;
-        }
-
-        .privacy-banner p {
-            color: #78350f;
-            margin: 0;
-            font-size: 0.95rem;
-        }
-
-        .loading-container {
-            text-align: center;
-            padding: 60px 20px;
-        }
-
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid #e5e7eb;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 24px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            color: #6b7280;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        .loading-dots {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .result-container {
-            display: none;
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .result-card {
-            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-            border: 1px solid #10b981;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .result-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #10b981, #059669);
-        }
-
-        .result-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .result-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-
-        .result-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: #065f46;
-        }
-
-        .fingerprint-display {
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            border-radius: 12px;
-            padding: 16px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.95rem;
-            word-break: break-all;
-            color: #065f46;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            position: relative;
-        }
-
-        .copy-button {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: #10b981;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .copy-button:hover {
-            background: #059669;
-            transform: translateY(-1px);
-        }
-
-        .traits-card {
-            background: linear-gradient(135deg, #eff6ff, #dbeafe);
-            border: 1px solid #3b82f6;
-            border-radius: 16px;
-            padding: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .traits-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #3b82f6, #2563eb);
-        }
-
-        .traits-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
-        .traits-title {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .traits-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-
-        .traits-title h3 {
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: #1e40af;
-        }
-
-        .toggle-button {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .toggle-button:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-        }
-
-        .traits-content {
-            max-height: 400px;
-            overflow-y: auto;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            border-radius: 12px;
-            padding: 16px;
-        }
-
-        .traits-content pre {
-            margin: 0;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.85rem;
-            color: #1e40af;
-            line-height: 1.5;
-            white-space: pre-wrap;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-top: 24px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.6);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #374151;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 0.85rem;
-            color: #6b7280;
-            font-weight: 500;
-        }
-
-        .error-message {
-            background: linear-gradient(135deg, #fef2f2, #fee2e2);
-            border: 1px solid #ef4444;
-            border-radius: 16px;
-            padding: 20px;
-            color: #dc2626;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        .refresh-button {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 12px 24px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 16px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .refresh-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-        }
-
-        @media (max-width: 768px) {
-            .main-card {
-                padding: 24px;
-                margin: 10px;
-                border-radius: 16px;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 12px;
-            }
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .collapsible {
-            max-height: 200px;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-
-        .collapsible.expanded {
-            max-height: none;
-        }
+      body { font-family: system-ui, sans-serif; max-width: 800px; margin: 24px auto; padding: 0 12px; }
+      h1 { margin-bottom: 4px; }
+      .muted { color: #666; font-size: 0.9rem; margin-top: 0; }
+      pre { background: #f7f7f7; padding: 12px; border-radius: 8px; overflow: auto; }
+      .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+      .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #eef; }
+      .ok { background: #e8f7ec; }
+      .warn { background: #fff3cd; }
+      button { padding: 8px 12px; }
     </style>
-</head>
-<body>
-    <!-- Animated background particles -->
-    <div class="particles" id="particles"></div>
+  </head>
+  <body>
+    <h1>Mini Fingerprint</h1>
+    <p class="muted">This demo collects non-PII browser traits, hashes them (with a server salt), and shows your fingerprint.</p>
 
-    <div class="container">
-        <div class="main-card">
-            <div class="header">
-                <h1>
-                    <i class="fas fa-fingerprint"></i>
-                    Mini Fingerprint
-                </h1>
-                <p class="subtitle">Advanced Browser Fingerprinting Technology</p>
-                <span class="tech-badge">
-                    <i class="fas fa-shield-alt"></i>
-                    Privacy-First SHA-256
-                </span>
-            </div>
-
-            <div class="privacy-banner">
-                <p>
-                    <i class="fas fa-info-circle icon"></i>
-                    <strong>Privacy Notice:</strong> This demonstration tool collects browser characteristics for security and fraud detection research. Only salted hash fingerprints are generated and displayed—raw traits are never stored or transmitted to third parties.
-                </p>
-            </div>
-
-            <div id="loading" class="loading-container">
-                <div class="loading-spinner"></div>
-                <div class="loading-text">
-                    Analyzing browser characteristics<span class="loading-dots">...</span>
-                </div>
-            </div>
-
-            <div id="result" class="result-container">
-                <div class="result-card">
-                    <div class="result-header">
-                        <div class="result-icon">
-                            <i class="fas fa-fingerprint"></i>
-                        </div>
-                        <div class="result-title">Your Unique Browser Fingerprint</div>
-                    </div>
-                    <div class="fingerprint-display">
-                        <span id="fingerprint-value"></span>
-                        <button class="copy-button" onclick="copyFingerprint()">
-                            <i class="fas fa-copy"></i> Copy
-                        </button>
-                    </div>
-                </div>
-
-                <div class="traits-card">
-                    <div class="traits-header">
-                        <div class="traits-title">
-                            <div class="traits-icon">
-                                <i class="fas fa-cogs"></i>
-                            </div>
-                            <h3>Collected Browser Traits</h3>
-                        </div>
-                        <button class="toggle-button" onclick="toggleTraits()">
-                            <i class="fas fa-eye" id="toggle-icon"></i>
-                            <span id="toggle-text">Show Details</span>
-                        </button>
-                    </div>
-                    <div class="traits-content collapsible" id="traits-content">
-                        <pre id="traits-json"></pre>
-                    </div>
-                </div>
-
-                <div class="stats-grid" id="stats-grid">
-                    <!-- Stats will be populated by JavaScript -->
-                </div>
-
-                <div style="text-align: center;">
-                    <button class="refresh-button" onclick="location.reload()">
-                        <i class="fas fa-sync-alt"></i>
-                        Generate New Fingerprint
-                    </button>
-                </div>
-            </div>
-
-            <div id="error" class="error-message hidden">
-                <i class="fas fa-exclamation-triangle"></i>
-                <div id="error-text"></div>
-            </div>
-        </div>
+    <div class="row">
+      <button id="refresh">Refresh / Recompute</button>
+      <span id="stability" class="badge">Checking…</span>
     </div>
 
+    <h3>Current fingerprint</h3>
+    <pre id="fp">…</pre>
+
+    <h3>Collected traits</h3>
+    <pre id="traits">…</pre>
+
     <script>
-        // Create floating particles
-        function createParticles() {
-            const particlesContainer = document.getElementById('particles');
-            const particleCount = 50;
+      function boolTry(fn) { try { return !!fn(); } catch { return false; } }
 
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.top = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 6 + 's';
-                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
-                particlesContainer.appendChild(particle);
-            }
+      async function getWebGLInfo() {
+        try {
+          const canvas = document.createElement('canvas');
+          let gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+          if (!gl) return { vendor: null, renderer: null, api: null };
+
+          const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+          const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null;
+          const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null;
+          return { vendor, renderer, api: gl instanceof WebGL2RenderingContext ? 'webgl2' : 'webgl' };
+        } catch {
+          return { vendor: null, renderer: null, api: null };
         }
+      }
 
-        // Copy fingerprint to clipboard
-        async function copyFingerprint() {
-            const fingerprint = document.getElementById('fingerprint-value').textContent;
-            try {
-                await navigator.clipboard.writeText(fingerprint);
-                const button = document.querySelector('.copy-button');
-                const originalText = button.innerHTML;
-                button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                button.style.background = '#059669';
-                setTimeout(() => {
-                    button.innerHTML = originalText;
-                    button.style.background = '#10b981';
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy fingerprint:', err);
-            }
-        }
+      async function canvasHash() {
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d');
+        c.width = 200; c.height = 50;
+        ctx.textBaseline = 'top';
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#f60'; ctx.fillRect(0,0,200,50);
+        ctx.fillStyle = '#069'; ctx.fillText('fp demo 😊', 2, 2);
+        // quick digest from data URL
+        const str = c.toDataURL();
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+        return h.toString(16);
+      }
 
-        // Toggle traits visibility
-        function toggleTraits() {
-            const content = document.getElementById('traits-content');
-            const icon = document.getElementById('toggle-icon');
-            const text = document.getElementById('toggle-text');
-            
-            if (content.classList.contains('collapsible')) {
-                content.classList.remove('collapsible');
-                content.classList.add('expanded');
-                icon.className = 'fas fa-eye-slash';
-                text.textContent = 'Hide Details';
-            } else {
-                content.classList.add('collapsible');
-                content.classList.remove('expanded');
-                icon.className = 'fas fa-eye';
-                text.textContent = 'Show Details';
-            }
-        }
+      async function collectTraits() {
+        const nav = navigator, scr = screen;
+        const webgl = await getWebGLInfo();
+        const traits = {
+          userAgent: nav.userAgent || '',
+          platform: nav.platform || '',
+          languages: nav.languages || [nav.language].filter(Boolean),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+          screen: { w: scr.width, h: scr.height, dpr: window.devicePixelRatio || 1, depth: scr.colorDepth || 0 },
+          hw: { cores: nav.hardwareConcurrency || null, memGB: nav.deviceMemory || null, maxTouchPoints: nav.maxTouchPoints || 0 },
+          storage: {
+            local: boolTry(() => (localStorage.setItem('t','1'), localStorage.removeItem('t'), true)),
+            session: boolTry(() => (sessionStorage.setItem('t','1'), sessionStorage.removeItem('t'), true)),
+            cookie: navigator.cookieEnabled === true
+          },
+          canvas: await canvasHash(),
+          webgl // { vendor, renderer, api }
+        };
+        return traits;
+      }
 
-        // Generate stats from traits
-        function generateStats(traits) {
-            const stats = [
-                { label: 'Screen Resolution', value: `${traits.screen.width}×${traits.screen.height}` },
-                { label: 'CPU Cores', value: traits.hardwareConcurrency || 'Unknown' },
-                { label: 'Memory (GB)', value: traits.deviceMemory || 'Unknown' },
-                { label: 'Timezone', value: traits.timezone },
-                { label: 'Platform', value: traits.platform },
-                { label: 'Touch Points', value: traits.maxTouchPoints }
-            ];
+      async function compute() {
+        const traits = await collectTraits();
+        document.getElementById('traits').textContent = JSON.stringify(traits, null, 2);
 
-            const statsGrid = document.getElementById('stats-grid');
-            statsGrid.innerHTML = stats.map(stat => `
-                <div class="stat-card">
-                    <div class="stat-value">${stat.value}</div>
-                    <div class="stat-label">${stat.label}</div>
-                </div>
-            `).join('');
-        }
-
-        // Helper function to get canvas fingerprint
-        function getCanvasFingerprint() {
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = 200;
-                canvas.height = 50;
-                
-                // Draw some text and shapes for fingerprinting
-                ctx.textBaseline = 'top';
-                ctx.font = '14px Arial';
-                ctx.fillStyle = '#f60';
-                ctx.fillRect(125, 1, 62, 20);
-                ctx.fillStyle = '#069';
-                ctx.fillText('Browser fingerprint test 🔍', 2, 15);
-                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-                ctx.fillText('Browser fingerprint test 🔍', 4, 17);
-                
-                // Return data URL or create a simple hash
-                const dataURL = canvas.toDataURL();
-                // Create a simple numeric hash from the dataURL
-                let hash = 0;
-                for (let i = 0; i < dataURL.length; i++) {
-                    const char = dataURL.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32-bit integer
-                }
-                return Math.abs(hash).toString(16);
-            } catch (e) {
-                return 'canvas_unavailable';
-            }
-        }
-
-        // Helper function to check storage availability
-        function checkStorageSupport() {
-            const storage = {};
-            
-            // Local storage
-            try {
-                localStorage.setItem('test', 'test');
-                localStorage.removeItem('test');
-                storage.localStorage = true;
-            } catch (e) {
-                storage.localStorage = false;
-            }
-            
-            // Session storage
-            try {
-                sessionStorage.setItem('test', 'test');
-                sessionStorage.removeItem('test');
-                storage.sessionStorage = true;
-            } catch (e) {
-                storage.sessionStorage = false;
-            }
-            
-            // Cookies
-            try {
-                document.cookie = 'test=test';
-                storage.cookieEnabled = document.cookie.indexOf('test=test') !== -1;
-                document.cookie = 'test=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-            } catch (e) {
-                storage.cookieEnabled = false;
-            }
-            
-            return storage;
-        }
-
-        // Collect all browser traits
-        function collectTraits() {
-            const traits = {
-                // Basic browser info
-                userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language,
-                languages: navigator.languages ? Array.from(navigator.languages) : [navigator.language],
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                
-                // Screen information
-                screen: {
-                    width: screen.width,
-                    height: screen.height,
-                    pixelRatio: window.devicePixelRatio || 1,
-                    colorDepth: screen.colorDepth,
-                    availWidth: screen.availWidth,
-                    availHeight: screen.availHeight
-                },
-                
-                // Hardware capabilities
-                hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-                deviceMemory: navigator.deviceMemory || 'unknown',
-                maxTouchPoints: navigator.maxTouchPoints || 0,
-                
-                // Storage support
-                storage: checkStorageSupport(),
-                
-                // Canvas fingerprint
-                canvas: getCanvasFingerprint(),
-                
-                // Additional traits
-                cookieEnabled: navigator.cookieEnabled,
-                doNotTrack: navigator.doNotTrack,
-                onLine: navigator.onLine,
-                
-                // Window dimensions
-                window: {
-                    innerWidth: window.innerWidth,
-                    innerHeight: window.innerHeight,
-                    outerWidth: window.outerWidth,
-                    outerHeight: window.outerHeight
-                }
-            };
-            
-            return traits;
-        }
-
-        // Send traits to backend and display result
-        async function generateFingerprint() {
-            try {
-                // Collect traits
-                const traits = collectTraits();
-                
-                // Send to backend
-                const response = await fetch('/fp', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ data: traits })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                // Display results
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('result').style.display = 'block';
-                document.getElementById('fingerprint-value').textContent = result.fp;
-                document.getElementById('traits-json').textContent = JSON.stringify(traits, null, 2);
-                
-                // Generate stats
-                generateStats(traits);
-                
-            } catch (error) {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').classList.remove('hidden');
-                document.getElementById('error-text').innerHTML = `
-                    <strong>Generation Failed:</strong> ${error.message}
-                    <br><br>
-                    <button class="refresh-button" onclick="location.reload()">
-                        <i class="fas fa-redo"></i> Try Again
-                    </button>
-                `;
-                console.error('Fingerprint generation failed:', error);
-            }
-        }
-
-        // Initialize page
-        window.addEventListener('load', () => {
-            createParticles();
-            // Small delay to ensure everything is loaded
-            setTimeout(generateFingerprint, 500);
+        const res = await fetch('/fp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: traits })
         });
+        const data = await res.json();
+        const fp = data.fp || '(error)';
+        document.getElementById('fp').textContent = fp;
+
+        // stability check via localStorage
+        const last = localStorage.getItem('last_fp');
+        const stability = document.getElementById('stability');
+        if (last && last === fp) {
+          stability.textContent = 'Stable: same as last visit';
+          stability.className = 'badge ok';
+        } else if (last && last !== fp) {
+          stability.textContent = 'Changed since last visit';
+          stability.className = 'badge warn';
+        } else {
+          stability.textContent = 'First seen (no previous fp)';
+          stability.className = 'badge';
+        }
+        localStorage.setItem('last_fp', fp);
+      }
+
+      document.getElementById('refresh').addEventListener('click', compute);
+      compute();
     </script>
-</body>
+  </body>
 </html>
